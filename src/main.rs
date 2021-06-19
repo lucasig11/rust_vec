@@ -8,33 +8,30 @@ use std::{
     ptr::{self, NonNull, Unique},
 };
 
-pub struct Vec<T> {
+// Type for abstracting the repeated allocation, growth and free logics
+pub struct RawVec<T> {
     // pointer to the allocation
     ptr: Unique<T>,
-
     // size of allocation
     cap: usize,
+}
 
-    // number of initialized elements
+pub struct Vec<T> {
+    buf: RawVec<T>,
     len: usize,
 }
 
 pub struct IntoIter<T> {
-    buf: Unique<T>,
-    cap: usize,
+    _buf: RawVec<T>,
     start: *const T,
     end: *const T,
 }
 
-// Initialize and allocate methods
-impl<T> Vec<T> {
-    pub fn new() -> Self {
+impl<T> RawVec<T> {
+    fn new() -> Self {
         assert!(mem::size_of::<T>() != 0, "zero-sized type not allowed..yet");
-        // Create a dangling pointer in the place of the pointer
-        // because we should allocate nothing on ::new
-        Vec {
+        Self {
             ptr: Unique::dangling(),
-            len: 0,
             cap: 0,
         }
     }
@@ -81,15 +78,44 @@ impl<T> Vec<T> {
     }
 }
 
+impl<T> Drop for RawVec<T> {
+    fn drop(&mut self) {
+        if self.cap != 0 {
+            unsafe {
+                let c: NonNull<T> = self.ptr.into();
+                Global.deallocate(c.cast(), Layout::array::<T>(self.cap).unwrap())
+            }
+        }
+    }
+}
+
+// Initialize and allocate methods
+impl<T> Vec<T> {
+    fn ptr(&self) -> *mut T {
+        self.buf.ptr.as_ptr()
+    }
+
+    fn cap(&self) -> usize {
+        self.buf.cap
+    }
+
+    pub fn new() -> Self {
+        Self {
+            buf: RawVec::new(),
+            len: 0,
+        }
+    }
+}
+
 // Data manipulation methods
 impl<T> Vec<T> {
     pub fn push(&mut self, elem: T) {
-        if self.len == self.cap {
-            self.grow()
+        if self.len == self.cap() {
+            self.buf.grow()
         };
 
         unsafe {
-            ptr::write(self.ptr.as_ptr().offset(self.len as isize), elem);
+            ptr::write(self.ptr().offset(self.len as isize), elem);
         }
 
         self.len += 1;
@@ -100,28 +126,28 @@ impl<T> Vec<T> {
             None
         } else {
             self.len -= 1;
-            unsafe { Some(ptr::read(self.ptr.as_ptr().offset(self.len as isize))) }
+            unsafe { Some(ptr::read(self.ptr().offset(self.len as isize))) }
         }
     }
 
     pub fn insert(&mut self, index: usize, elem: T) {
         assert!(index <= self.len, "Index out of bounds");
 
-        if self.cap == self.len {
-            self.grow();
+        if self.cap() == self.len {
+            self.buf.grow();
         }
 
         unsafe {
             if index < self.len {
                 // ptr::copy(source, dest, count) > Copy from source to dest count elements
                 ptr::copy(
-                    self.ptr.as_ptr().offset(index as isize),
-                    self.ptr.as_ptr().offset(index as isize + 1),
+                    self.ptr().offset(index as isize),
+                    self.ptr().offset(index as isize + 1),
                     self.len - index,
                 );
             }
 
-            ptr::write(self.ptr.as_ptr().offset(index as isize), elem);
+            ptr::write(self.ptr().offset(index as isize), elem);
             self.len += 1;
         }
     }
@@ -132,11 +158,11 @@ impl<T> Vec<T> {
         unsafe {
             self.len -= 1;
             ptr::copy(
-                self.ptr.as_ptr().offset(index as isize + 1),
-                self.ptr.as_ptr().offset(index as isize),
+                self.ptr().offset(index as isize + 1),
+                self.ptr().offset(index as isize),
                 self.len - index,
             );
-            ptr::read(self.ptr.as_ptr().offset(index as isize))
+            ptr::read(self.ptr().offset(index as isize))
         }
     }
 }
@@ -144,13 +170,9 @@ impl<T> Vec<T> {
 // Deallocation
 impl<T> Drop for Vec<T> {
     fn drop(&mut self) {
-        if self.cap != 0 {
+        if self.cap() != 0 {
             while let Some(_) = self.pop() {}
-
-            unsafe {
-                let c: NonNull<T> = self.ptr.into();
-                Global.deallocate(c.cast(), Layout::array::<T>(self.cap).unwrap());
-            }
+            // Deallocation is handled by RawVec
         }
     }
 }
@@ -159,36 +181,29 @@ impl<T> Drop for Vec<T> {
 impl<T> Deref for Vec<T> {
     type Target = [T];
     fn deref(&self) -> &[T] {
-        unsafe { std::slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
+        unsafe { std::slice::from_raw_parts(self.ptr(), self.len) }
     }
 }
 
 impl<T> DerefMut for Vec<T> {
     fn deref_mut(&mut self) -> &mut [T] {
-        unsafe { std::slice::from_raw_parts_mut(self.ptr.as_ptr(), self.len) }
+        unsafe { std::slice::from_raw_parts_mut(self.ptr(), self.len) }
     }
 }
 
 // Iterators (take ownership, so must drop)
 impl<T> Vec<T> {
     pub fn into_iter(self) -> IntoIter<T> {
-        let ptr = self.ptr;
-        let cap = self.cap;
-        let len = self.len;
-
-        // Make sure not to drop Vec since that will free the buffer
-        mem::forget(self);
-
         unsafe {
+            let buf = ptr::read(&self.buf);
+            let len = self.len;
+
+            mem::forget(self);
+
             IntoIter {
-                cap,
-                buf: ptr,
-                start: ptr.as_ptr(),
-                end: if cap == 0 {
-                    ptr.as_ptr()
-                } else {
-                    ptr.as_ptr().offset(len as isize)
-                },
+                start: buf.ptr.as_ptr(),
+                end: buf.ptr.as_ptr().offset(len as isize),
+                _buf: buf,
             }
         }
     }
@@ -231,14 +246,8 @@ impl<T> DoubleEndedIterator for IntoIter<T> {
 // Iterator deallocation
 impl<T> Drop for IntoIter<T> {
     fn drop(&mut self) {
-        if self.cap != 0 {
-            for _ in &mut *self {}
-
-            unsafe {
-                let c: NonNull<T> = self.buf.into();
-                Global.deallocate(c.cast(), Layout::array::<T>(self.cap).unwrap())
-            }
-        }
+        // Ensure all elements are read
+        for _ in &mut *self {}
     }
 }
 
