@@ -1,12 +1,17 @@
 use std::{alloc::{Allocator, Global, Layout, handle_alloc_error}, mem, ptr::{self, NonNull, Unique}};
 
-
 // Type for abstracting the repeated allocation, growth and free logics
 pub struct RawVec<T> {
     // pointer to the allocation
     pub ptr: Unique<T>,
     // size of allocation
     pub cap: usize,
+}
+
+// Type for abstracting iterators logic
+pub struct RawValIter<T> {
+    start: *const T,
+    end: *const T,
 }
 
 // Allocate, grow and free shared methods
@@ -73,12 +78,6 @@ impl<T> Drop for RawVec<T> {
     }
 }
 
-// Type for abstracting iterators logic
-pub struct RawValIter<T> {
-    start: *const T,
-    end: *const T,
-}
-
 impl<T> RawValIter<T> {
     pub unsafe fn new(slice: &[T]) -> Self { 
         Self {
@@ -125,4 +124,3 @@ impl<T> DoubleEndedIterator for RawValIter<T> {
         }
     }
 }
-

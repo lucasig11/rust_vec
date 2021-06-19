@@ -1,13 +1,11 @@
 #![feature(ptr_internals)]
 #![feature(allocator_api)]
 mod raw;
+mod drain;
 
+use drain::Drain;
 use raw::{RawValIter, RawVec};
-use std::{
-    mem,
-    ops::{Deref, DerefMut},
-    ptr,
-};
+use std::{marker::PhantomData, mem, ops::{Deref, DerefMut}, ptr};
 
 pub struct Vec<T> {
     buf: RawVec<T>,
@@ -104,6 +102,19 @@ impl<T> Vec<T> {
             mem::forget(self);
 
             IntoIter { iter, _buf: buf }
+        }
+    }
+
+    pub fn drain(&mut self) -> Drain<T> {
+        unsafe {
+            let iter = RawValIter::new(&self);
+
+            self.len = 0;
+
+            Drain {
+                iter,
+                vec: PhantomData,
+            }
         }
     }
 }
