@@ -189,4 +189,9 @@ fn main() {
 
     let el = vec.pop().unwrap();
     println!("pop {} | new length {}", el, vec.len);
+
+    for i in vec.iter_mut() {
+        *i *= 2;
+        println!("mutable iter {}", i)
+    }
 }
