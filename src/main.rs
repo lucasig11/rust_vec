@@ -251,4 +251,20 @@ impl<T> Drop for IntoIter<T> {
     }
 }
 
-fn main() {}
+fn main() {
+    let mut vec: Vec<i32> = Vec::new();
+    
+    vec.push(10);
+    vec.push(11);
+    vec.push(12);
+    vec.push(13);
+    vec.push(14);
+
+    
+    for i in vec.iter() {
+        println!("iter {}", i)
+    }
+
+    let el = vec.pop().unwrap();
+    println!("pop {} | new length {}", el, vec.len);
+}
