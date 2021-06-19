@@ -15,7 +15,7 @@ pub struct Vec<T> {
     // size of allocation
     cap: usize,
 
-    // number of initializes elements
+    // number of initialized elements
     len: usize,
 }
 
@@ -73,7 +73,6 @@ impl<T> Vec<T> {
         }
     }
 }
-
 
 // Data manipulation methods
 impl<T> Vec<T> {
@@ -148,7 +147,6 @@ impl<T> Drop for Vec<T> {
         }
     }
 }
-
 
 // Deref coertion (so our vector can be 'sliced')
 impl<T> Deref for Vec<T> {
