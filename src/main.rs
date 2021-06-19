@@ -19,6 +19,13 @@ pub struct Vec<T> {
     len: usize,
 }
 
+pub struct IntoIter<T> {
+    buf: Unique<T>,
+    cap: usize,
+    start: *const T,
+    end: *const T,
+}
+
 // Initialize and allocate methods
 impl<T> Vec<T> {
     pub fn new() -> Self {
@@ -159,6 +166,79 @@ impl<T> Deref for Vec<T> {
 impl<T> DerefMut for Vec<T> {
     fn deref_mut(&mut self) -> &mut [T] {
         unsafe { std::slice::from_raw_parts_mut(self.ptr.as_ptr(), self.len) }
+    }
+}
+
+// Iterators (take ownership, so must drop)
+impl<T> Vec<T> {
+    pub fn into_iter(self) -> IntoIter<T> {
+        let ptr = self.ptr;
+        let cap = self.cap;
+        let len = self.len;
+
+        // Make sure not to drop Vec since that will free the buffer
+        mem::forget(self);
+
+        unsafe {
+            IntoIter {
+                cap,
+                buf: ptr,
+                start: ptr.as_ptr(),
+                end: if cap == 0 {
+                    ptr.as_ptr()
+                } else {
+                    ptr.as_ptr().offset(len as isize)
+                },
+            }
+        }
+    }
+}
+
+impl<T> Iterator for IntoIter<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<T> {
+        if self.start == self.end {
+            None
+        } else {
+            unsafe {
+                let result = ptr::read(self.start);
+                self.start = self.start.offset(1);
+                Some(result)
+            }
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = (self.end as usize - self.start as usize) / mem::size_of::<T>();
+        (len, Some(len))
+    }
+}
+
+impl<T> DoubleEndedIterator for IntoIter<T> {
+    fn next_back(&mut self) -> Option<T> {
+        if self.start == self.end {
+            None
+        } else {
+            unsafe {
+                self.start = self.end.offset(-1);
+                Some(ptr::read(self.end))
+            }
+        }
+    }
+}
+
+// Iterator deallocation
+impl<T> Drop for IntoIter<T> {
+    fn drop(&mut self) {
+        if self.cap != 0 {
+            for _ in &mut *self {}
+
+            unsafe {
+                let c: NonNull<T> = self.buf.into();
+                Global.deallocate(c.cast(), Layout::array::<T>(self.cap).unwrap())
+            }
+        }
     }
 }
 
