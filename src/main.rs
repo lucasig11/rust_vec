@@ -19,6 +19,7 @@ pub struct Vec<T> {
     len: usize,
 }
 
+// Initialize and allocate methods
 impl<T> Vec<T> {
     pub fn new() -> Self {
         assert!(mem::size_of::<T>() != 0, "zero-sized type not allowed..yet");
@@ -73,6 +74,8 @@ impl<T> Vec<T> {
     }
 }
 
+
+// Data manipulation methods
 impl<T> Vec<T> {
     pub fn push(&mut self, elem: T) {
         if self.len == self.cap {
@@ -132,6 +135,7 @@ impl<T> Vec<T> {
     }
 }
 
+// Deallocation
 impl<T> Drop for Vec<T> {
     fn drop(&mut self) {
         if self.cap != 0 {
@@ -145,6 +149,8 @@ impl<T> Drop for Vec<T> {
     }
 }
 
+
+// Deref coertion (so our vector can be 'sliced')
 impl<T> Deref for Vec<T> {
     type Target = [T];
     fn deref(&self) -> &[T] {
