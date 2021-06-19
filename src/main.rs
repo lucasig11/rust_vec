@@ -1,11 +1,16 @@
 #![feature(ptr_internals)]
 #![feature(allocator_api)]
-mod raw;
 mod drain;
+mod raw;
 
 use drain::Drain;
 use raw::{RawValIter, RawVec};
-use std::{marker::PhantomData, mem, ops::{Deref, DerefMut}, ptr};
+use std::{
+    marker::PhantomData,
+    mem,
+    ops::{Deref, DerefMut},
+    ptr,
+};
 
 pub struct Vec<T> {
     buf: RawVec<T>,

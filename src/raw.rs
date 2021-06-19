@@ -1,4 +1,8 @@
-use std::{alloc::{Allocator, Global, Layout, handle_alloc_error}, mem, ptr::{self, NonNull, Unique}};
+use std::{
+    alloc::{handle_alloc_error, Allocator, Global, Layout},
+    mem,
+    ptr::{self, NonNull, Unique},
+};
 
 // Type for abstracting the repeated allocation, growth and free logics
 pub struct RawVec<T> {
@@ -79,14 +83,14 @@ impl<T> Drop for RawVec<T> {
 }
 
 impl<T> RawValIter<T> {
-    pub unsafe fn new(slice: &[T]) -> Self { 
+    pub unsafe fn new(slice: &[T]) -> Self {
         Self {
             start: slice.as_ptr(),
             end: if slice.len() == 0 {
                 slice.as_ptr()
             } else {
                 slice.as_ptr().offset(slice.len() as isize)
-            }
+            },
         }
     }
 }
