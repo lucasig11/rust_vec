@@ -27,6 +27,7 @@ pub struct IntoIter<T> {
     end: *const T,
 }
 
+// Allocate, grow and free shared methods
 impl<T> RawVec<T> {
     fn new() -> Self {
         assert!(mem::size_of::<T>() != 0, "zero-sized type not allowed..yet");
@@ -78,6 +79,7 @@ impl<T> RawVec<T> {
     }
 }
 
+// RawVec Deallocation (Drop trait -> https://doc.rust-lang.org/1.9.0/book/drop.html)
 impl<T> Drop for RawVec<T> {
     fn drop(&mut self) {
         if self.cap != 0 {
@@ -89,7 +91,7 @@ impl<T> Drop for RawVec<T> {
     }
 }
 
-// Initialize and allocate methods
+// Initialization methods
 impl<T> Vec<T> {
     fn ptr(&self) -> *mut T {
         self.buf.ptr.as_ptr()
@@ -167,16 +169,6 @@ impl<T> Vec<T> {
     }
 }
 
-// Deallocation
-impl<T> Drop for Vec<T> {
-    fn drop(&mut self) {
-        if self.cap() != 0 {
-            while let Some(_) = self.pop() {}
-            // Deallocation is handled by RawVec
-        }
-    }
-}
-
 // Deref coertion (so our vector can be 'sliced')
 impl<T> Deref for Vec<T> {
     type Target = [T];
@@ -191,7 +183,17 @@ impl<T> DerefMut for Vec<T> {
     }
 }
 
-// Iterators (take ownership, so must drop)
+// Deallocation
+impl<T> Drop for Vec<T> {
+    fn drop(&mut self) {
+        if self.cap() != 0 {
+            while let Some(_) = self.pop() {}
+            // Deallocation is handled by RawVec
+        }
+    }
+}
+
+// Iterators
 impl<T> Vec<T> {
     pub fn into_iter(self) -> IntoIter<T> {
         unsafe {
@@ -243,7 +245,6 @@ impl<T> DoubleEndedIterator for IntoIter<T> {
     }
 }
 
-// Iterator deallocation
 impl<T> Drop for IntoIter<T> {
     fn drop(&mut self) {
         // Ensure all elements are read
