@@ -32,6 +32,7 @@ macro_rules! custom_vec {
     };
 }
 
+/// Contiguous, dynamically-sized set of elements of any type.
 #[derive(Debug)]
 pub struct Vec<T> {
     /// Items in the vector
