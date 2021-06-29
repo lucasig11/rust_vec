@@ -12,11 +12,34 @@ use std::{
     ptr,
 };
 
-pub struct Vec<T> {
-    buf: RawVec<T>,
-    len: usize,
+#[macro_export]
+/// Simplified macro for vec creation.
+/// # Example
+/// ```
+/// let vec = vec![1, 2, 3];
+/// assert_eq!(vec.len(), 3);
+/// ```
+macro_rules! vec {
+    ( $( $x:expr ),* ) => {
+        {
+            let mut temp_vec = Vec::new();
+            $(
+                temp_vec.push($x);
+            )*
+            temp_vec
+        }
+    };
 }
 
+#[derive(Debug)]
+pub struct Vec<T> {
+    /// Items in the vector
+    pub len: usize,
+    /// Pointer to Vector's RawPointer
+    buf: RawVec<T>,
+}
+
+/// Coerces a `Vec` into an iterator.
 pub struct IntoIter<T> {
     _buf: RawVec<T>,
     iter: RawValIter<T>,
@@ -32,16 +55,28 @@ impl<T> Vec<T> {
         self.buf.cap
     }
 
+    /// Creates a new Vector with size 0 (unallocated).
+    /// # Example
+    /// ```
+    /// use vec::Vec;
+    /// let vec: Vec<i32> = Vec::new();
+    /// assert_eq!(vec.len(), 0);
+    /// ```
     pub fn new() -> Self {
         Self {
             buf: RawVec::new(),
             len: 0,
         }
     }
-}
 
-// Data manipulation methods
-impl<T> Vec<T> {
+    /// Pushes an element to the end of the vector.
+    /// # Example
+    /// ```
+    /// use vec::Vec;
+    /// let mut vec = Vec::new();
+    /// vec.push(1);
+    /// assert_eq!(vec.len(), 1);
+    /// ```
     pub fn push(&mut self, elem: T) {
         if self.len == self.cap() {
             self.buf.grow()
@@ -54,6 +89,18 @@ impl<T> Vec<T> {
         self.len += 1;
     }
 
+    /// Removes the last element of the vector and returns it, or `None` if the vector is empty.
+    /// # Example
+    /// ```
+    /// use vec::Vec;
+    /// let mut vec = Vec::new();
+    /// vec.push(1);
+    /// vec.push(2);
+    ///
+    /// let pop = vec.pop().unwrap();
+    ///
+    /// assert_eq!(pop, 2);
+    /// ```
     pub fn pop(&mut self) -> Option<T> {
         if self.len == 0 {
             None
@@ -63,6 +110,18 @@ impl<T> Vec<T> {
         }
     }
 
+    /// Inserts an element at a given index, shifting all the elements to the right.
+    /// # Panics
+    /// This function will panic if the index is out of bounds (>= length).
+    /// # Example
+    /// ```
+    /// use vec::Vec;
+    /// let mut vec = Vec::new();
+    /// vec.push(1);
+    /// vec.push(2);
+    /// vec.insert(1, 3);
+    /// assert_eq!(vec![1, 3, 2], vec);
+    /// ```
     pub fn insert(&mut self, index: usize, elem: T) {
         assert!(index <= self.len, "Index out of bounds");
 
@@ -72,7 +131,7 @@ impl<T> Vec<T> {
 
         unsafe {
             if index < self.len {
-                // ptr::copy(source, dest, count) > Copy from source to dest count elements
+                // ptr::copy(source, dest, count) > Copy from 'source' to 'dest' 'count' elements
                 ptr::copy(
                     self.ptr().offset(index as isize),
                     self.ptr().offset(index as isize + 1),
@@ -85,6 +144,17 @@ impl<T> Vec<T> {
         }
     }
 
+    /// Removes an element from a given index, shifting all the elements to the left.
+    /// # Panics
+    /// This function will panic if the index is out of bounds.
+    /// # Example
+    /// ```
+    /// use vec::Vec;
+    /// let mut vec = Vec::new();
+    /// vec.push(1);
+    /// vec.remove(0);
+    /// assert_eq!(vec.pop(), None);
+    /// ```
     pub fn remove(&mut self, index: usize) -> T {
         assert!(index < self.len, "index out of bounds");
 
@@ -99,6 +169,16 @@ impl<T> Vec<T> {
         }
     }
 
+    /// Consumes Self into an iterator.
+    /// # Example
+    /// ```
+    /// let v = vec![1, 2, 3];
+    /// let mut iter = v.into_iter();
+    /// assert_eq!(Some(1), iter.next());
+    /// assert_eq!(Some(2), iter.next());
+    /// assert_eq!(Some(3), iter.next());
+    /// assert_eq!(None, iter.next());
+    /// ```
     pub fn into_iter(self) -> IntoIter<T> {
         unsafe {
             let iter = RawValIter::new(&self);
@@ -110,6 +190,16 @@ impl<T> Vec<T> {
         }
     }
 
+    /// Creates a draining iterator that removes the specified range in the vector and yields the removed items.
+    /// # Example
+    /// ```
+    /// let mut vec = vec![1, 2, 3];
+    /// let mut iter = vec.drain(..);
+    /// assert_eq!(Some(1), iter.next());
+    /// assert_eq!(Some(2), iter.next());
+    /// assert_eq!(Some(3), iter.next());
+    /// assert_eq!(None, iter.next());
+    /// ```
     pub fn drain(&mut self) -> Drain<T> {
         unsafe {
             let iter = RawValIter::new(&self);
@@ -171,27 +261,5 @@ impl<T> Drop for IntoIter<T> {
     fn drop(&mut self) {
         // Ensure all elements are read
         for _ in &mut *self {}
-    }
-}
-
-fn main() {
-    let mut vec: Vec<i32> = Vec::new();
-
-    vec.push(10);
-    vec.push(11);
-    vec.push(12);
-    vec.push(13);
-    vec.push(14);
-
-    for i in vec.iter() {
-        println!("iter {}", i)
-    }
-
-    let el = vec.pop().unwrap();
-    println!("pop {} | new length {}", el, vec.len);
-
-    for i in vec.iter_mut() {
-        *i *= 2;
-        println!("mutable iter {}", i)
     }
 }

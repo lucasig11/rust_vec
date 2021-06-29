@@ -5,6 +5,7 @@ use std::{
 };
 
 // Type for abstracting the repeated allocation, growth and free logics
+#[derive(Debug)]
 pub struct RawVec<T> {
     // pointer to the allocation
     pub ptr: Unique<T>,
