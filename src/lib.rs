@@ -12,14 +12,15 @@ use std::{
     ptr,
 };
 
-#[macro_export]
 /// Simplified macro for vec creation.
 /// # Example
 /// ```
-/// let vec = vec![1, 2, 3];
+/// use vec::custom_vec;
+/// let vec = custom_vec![1, 2, 3];
 /// assert_eq!(vec.len(), 3);
 /// ```
-macro_rules! vec {
+#[macro_export]
+macro_rules! custom_vec {
     ( $( $x:expr ),* ) => {
         {
             let mut temp_vec = Vec::new();
@@ -45,7 +46,6 @@ pub struct IntoIter<T> {
     iter: RawValIter<T>,
 }
 
-// Initialization methods
 impl<T> Vec<T> {
     fn ptr(&self) -> *mut T {
         self.buf.ptr.as_ptr()
@@ -58,7 +58,6 @@ impl<T> Vec<T> {
     /// Creates a new Vector with size 0 (unallocated).
     /// # Example
     /// ```
-    /// use vec::Vec;
     /// let vec: Vec<i32> = Vec::new();
     /// assert_eq!(vec.len(), 0);
     /// ```
@@ -72,10 +71,10 @@ impl<T> Vec<T> {
     /// Pushes an element to the end of the vector.
     /// # Example
     /// ```
-    /// use vec::Vec;
-    /// let mut vec = Vec::new();
+    /// use vec::custom_vec;
+    /// let mut vec = custom_vec![5, 4, 3, 2];
     /// vec.push(1);
-    /// assert_eq!(vec.len(), 1);
+    /// assert_eq!(custom_vec![5, 4, 3, 2, 1], vec);
     /// ```
     pub fn push(&mut self, elem: T) {
         if self.len == self.cap() {
@@ -92,11 +91,8 @@ impl<T> Vec<T> {
     /// Removes the last element of the vector and returns it, or `None` if the vector is empty.
     /// # Example
     /// ```
-    /// use vec::Vec;
-    /// let mut vec = Vec::new();
-    /// vec.push(1);
-    /// vec.push(2);
-    ///
+    /// use vec::custom_vec;
+    /// let mut vec = custom_vec![1, 2];
     /// let pop = vec.pop().unwrap();
     ///
     /// assert_eq!(pop, 2);
@@ -115,12 +111,10 @@ impl<T> Vec<T> {
     /// This function will panic if the index is out of bounds (>= length).
     /// # Example
     /// ```
-    /// use vec::Vec;
-    /// let mut vec = Vec::new();
-    /// vec.push(1);
-    /// vec.push(2);
+    /// use vec::{Vec, custom_vec};
+    /// let mut vec = custom_vec![1, 2];
     /// vec.insert(1, 3);
-    /// assert_eq!(vec![1, 3, 2], vec);
+    /// assert_eq!(custom_vec![1, 3, 2], vec);
     /// ```
     pub fn insert(&mut self, index: usize, elem: T) {
         assert!(index <= self.len, "Index out of bounds");
@@ -149,11 +143,12 @@ impl<T> Vec<T> {
     /// This function will panic if the index is out of bounds.
     /// # Example
     /// ```
-    /// use vec::Vec;
-    /// let mut vec = Vec::new();
-    /// vec.push(1);
+    /// use vec::{Vec, custom_vec};
+    /// # fn main() {
+    /// let mut vec = custom_vec![1];
     /// vec.remove(0);
-    /// assert_eq!(vec.pop(), None);
+    /// assert_eq!(vec.len(), 0);
+    /// # }
     /// ```
     pub fn remove(&mut self, index: usize) -> T {
         assert!(index < self.len, "index out of bounds");
@@ -172,7 +167,8 @@ impl<T> Vec<T> {
     /// Consumes Self into an iterator.
     /// # Example
     /// ```
-    /// let v = vec![1, 2, 3];
+    /// use vec::custom_vec;
+    /// let v = custom_vec![1, 2, 3];
     /// let mut iter = v.into_iter();
     /// assert_eq!(Some(1), iter.next());
     /// assert_eq!(Some(2), iter.next());
@@ -193,7 +189,8 @@ impl<T> Vec<T> {
     /// Creates a draining iterator that removes the specified range in the vector and yields the removed items.
     /// # Example
     /// ```
-    /// let mut vec = vec![1, 2, 3];
+    /// use vec::custom_vec;
+    /// let mut vec = custom_vec![1, 2, 3];
     /// let mut iter = vec.drain(..);
     /// assert_eq!(Some(1), iter.next());
     /// assert_eq!(Some(2), iter.next());
@@ -263,3 +260,20 @@ impl<T> Drop for IntoIter<T> {
         for _ in &mut *self {}
     }
 }
+
+impl<T: PartialEq> PartialEq for Vec<T> {
+    fn eq(&self, other: &Self) -> bool {
+        if self.len() != other.len() {
+            return false;
+        }
+        for (i, el) in self.iter().enumerate() {
+            if *other.get(i).unwrap() == *el {
+                continue;
+            } else {
+                return false;
+            }
+        }
+        return true;
+    }
+}
+impl<T: PartialEq> Eq for Vec<T> {}
